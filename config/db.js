@@ -1,23 +1,24 @@
-const mysql = require('mysql2/promise');
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
 
-const connection = mysql.createPool({
+
+const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASSWORD, {
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  dialect: 'mysql',
+  logging: false,
 });
 
 async function testConnection() {
   try {
-    const [rows, fields] = await connection.execute('SELECT 1');
-    console.log('✅ Подключение успешно установлено');
+    await sequelize.authenticate();
+    console.log('✅ Подключение к базе данных установлено');
   } catch (err) {
-    console.error('Ошибка подключения к MySQL:', err.stack);
+    console.error('Ошибка подключения к MySQL:', err);
     process.exit(1);
   }
 }
 
 testConnection();
 
-module.exports = connection;
+module.exports = sequelize;

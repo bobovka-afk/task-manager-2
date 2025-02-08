@@ -2,13 +2,13 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { body, validationResult } = require('express-validator');
-const db = require('../config/db');
+const User = require('../models/user');
+const { authenticateToken } = require('../middleware/authMiddleware');
+
 const router = express.Router();
-const { authenticateToken } = require('../middleware/authMiddleware')
+const SECRET_KEY = process.env.JWT_SECRET_KEY;
 
-const SECRET_KEY = process.env.JWT_SECRET_KEY 
 
-// Регистрация
 router.post('/register', 
   [
     body('email').isEmail().withMessage('Некорректный email'),
@@ -26,7 +26,8 @@ router.post('/register',
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      const [result] = await db.execute('INSERT INTO users (email, password) VALUES (?, ?)', [email, hashedPassword]);
+      // Создание пользователя через Sequelize
+      await User.create({ email, password: hashedPassword });
 
       res.json({ message: 'Пользователь зарегистрирован' });
     } catch (err) {
@@ -36,7 +37,6 @@ router.post('/register',
   }
 );
 
-// Логин и генерация токена
 router.post('/login', 
   [
     body('email').isEmail().withMessage('Некорректный email'),
@@ -51,18 +51,17 @@ router.post('/login',
     const { email, password } = req.body;
 
     try {
-      const [results] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
+      // Поиск пользователя через Sequelize
+      const user = await User.findOne({ where: { email } });
 
-      if (results.length === 0) {
+      if (!user) {
         return res.status(404).json({ error: 'Пользователь не найден' });
       }
 
-      const storedHashedPassword = results[0].password;
-      const isPasswordValid = await bcrypt.compare(password, storedHashedPassword);
+      const isPasswordValid = await bcrypt.compare(password, user.password);
 
       if (isPasswordValid) {
-        // Генерация JWT
-        const token = jwt.sign({ userId: results[0].id, email: results[0].email }, SECRET_KEY, { expiresIn: '1h' });
+        const token = jwt.sign({ userId: user.id, email: user.email }, SECRET_KEY, { expiresIn: '1h' });
 
         return res.json({ message: 'Авторизация успешна!', token });
       } else {
@@ -76,11 +75,7 @@ router.post('/login',
 );
 
 router.get('/protected', authenticateToken, (req, res) => {
-    // Получаем данные пользователя из токена
-    const user = req.user;
-    
-    res.json({ message: 'Вы получили защищённые данные', user });
-  });
-  
+    res.json({ message: 'Вы получили защищённые данные', user: req.user });
+});
 
 module.exports = router;

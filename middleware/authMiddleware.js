@@ -1,4 +1,3 @@
-// В файле auth.js (или где определена authenticateToken)
 const jwt = require('jsonwebtoken');
 const SECRET_KEY = process.env.JWT_SECRET_KEY;
 
@@ -19,5 +18,4 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Экспортируем функцию
 module.exports = { authenticateToken };
